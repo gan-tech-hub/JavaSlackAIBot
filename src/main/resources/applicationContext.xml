@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!-- application.properties を読み込む -->
+    <context:property-placeholder location="classpath:application.properties"/>
+
+    <!-- Supabase接続用DataSource -->
+    <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource">
+        <property name="driverClassName" value="${spring.datasource.driver-class-name}"/>
+        <property name="url" value="${spring.datasource.url}"/>
+        <property name="username" value="${spring.datasource.username}"/>
+        <property name="password" value="${spring.datasource.password}"/>
+    </bean>
+
+    <!-- JdbcTemplate -->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+
+    <!-- faqRepository -->
+    <bean id="faqRepository" class="com.example.repo.FaqRepository">
+        <constructor-arg ref="jdbcTemplate"/>
+    </bean>
+
+    <!-- openAiClient -->
+    <bean id="openAiClient" class="com.example.service.OpenAiClient">
+        <constructor-arg value="${openai.api.key}"/>
+    </bean>
+
+    <!-- faqIngestor -->
+    <bean id="faqIngestor" class="com.example.job.FaqIngestor">
+        <constructor-arg ref="openAiClient"/>
+        <constructor-arg ref="faqRepository"/>
+    </bean>
+
+    <!-- ragService -->
+    <bean id="ragService" class="com.example.service.RagService">
+        <constructor-arg ref="openAiClient"/>
+        <constructor-arg ref="faqRepository"/>
+    </bean>
+
+    <!-- slackService -->
+    <bean id="slackService" class="com.example.slackbot.service.SlackService">
+        <constructor-arg value="${slack.app.token}"/>
+        <constructor-arg ref="ragService"/>
+    </bean>
+</beans>
