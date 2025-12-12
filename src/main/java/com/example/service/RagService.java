@@ -15,7 +15,8 @@ public class RagService {
 
     public String answer(String question) {
         // 1. 質問をEmbedding
-        double[] queryEmbedding = openAiClient.embed(question);
+        List<double[]> queryEmbeddingList = openAiClient.embed(List.of(question));
+        double[] queryEmbedding = queryEmbeddingList.get(0);
 
         // 2. Supabase検索（上位3件）
         List<Chunk> candidates = faqRepository.search(queryEmbedding, 3);

@@ -35,7 +35,8 @@
     </bean>
 
     <!-- faqIngestor -->
-    <bean id="faqIngestor" class="com.example.job.FaqIngestor">
+    <bean id="faqIngestor" class="com.example.job.FaqIngestor" init-method="ingest">
+        <property name="faqPath" value="${FAQ_PATH}"/>
         <constructor-arg ref="openAiClient"/>
         <constructor-arg ref="faqRepository"/>
     </bean>
@@ -47,8 +48,9 @@
     </bean>
 
     <!-- slackService -->
-    <bean id="slackService" class="com.example.slackbot.service.SlackService">
+    <bean id="slackService" class="com.example.slackbot.service.SlackService" init-method="start">
         <constructor-arg value="${slack.app.token}"/>
         <constructor-arg ref="ragService"/>
+        <constructor-arg ref="openAiClient"/>
     </bean>
 </beans>

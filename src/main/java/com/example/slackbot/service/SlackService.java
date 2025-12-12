@@ -3,131 +3,98 @@ package com.example.slackbot.service;
 import com.slack.api.bolt.App;
 import com.slack.api.bolt.socket_mode.SocketModeApp;
 import com.slack.api.model.event.AppMentionEvent;
+import com.slack.api.methods.response.conversations.ConversationsRepliesResponse;
 import com.example.service.RagService;
+import com.example.service.OpenAiClient;
+import com.example.rag.ThreadClusterer;
+import com.slack.api.model.Message;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+
+/*--- デバッグ ---*/
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SlackService {
+    /*--- デバッグ ---*/
+    private static final Logger log = LoggerFactory.getLogger(SlackService.class);
+
     private final String appToken;   // App Token (xapp-...)
     private final RagService ragService;
+    private final OpenAiClient openAiClient;
+    private final Set<String> processedEvents = ConcurrentHashMap.newKeySet();
 
-    public SlackService(String appToken, RagService ragService) {
+    public SlackService(String appToken, RagService ragService, OpenAiClient openAiClient) {
         this.appToken = appToken;
         this.ragService = ragService;
+        this.openAiClient = openAiClient;
+        log.info("SlackService initialized with appToken={}", appToken != null ? "SET" : "NULL");
     }
 
     public void start() throws Exception {
         App app = new App();
 
-        // メッセージイベントをハンドリング
+        // メンションイベント
         app.event(AppMentionEvent.class, (payload, ctx) -> {
+            String eventTs = payload.getEvent().getTs();
+            if (processedEvents.contains(eventTs)) {
+                log.info("Skip duplicate event: {}", eventTs);
+                return ctx.ack();
+            }
+            processedEvents.add(eventTs);
+
             String userMessage = payload.getEvent().getText();
-            String userId = payload.getEvent().getUser(); // 送信者のユーザーID
+            String userId = payload.getEvent().getUser();
+            log.info("Received AppMentionEvent: userId={} text={}", userId, userMessage);
 
-            // RagServiceで回答生成
             String answer = ragService.answer(userMessage);
-
-            // 送信者にメンションして返答
             ctx.say("<@" + userId + "> さん " + answer);
+            log.info("RAG answer={}", answer);
 
             return ctx.ack();
         });
 
-        // Socket Modeで起動（App Tokenを使用）
+        // メッセージショートカット: summarize_thread
+        app.messageShortcut("summarize_thread", (req, ctx) -> {
+            Message msg = req.getPayload().getMessage();
+            String channelId = req.getPayload().getChannel().getId();
+            String threadTs = msg.getTs();
+            log.info("Shortcut 'summarize_thread' triggered: channelId={} threadTs={}", channelId, threadTs);
+
+            if (threadTs == null) {
+                log.warn("threadTs is null, cannot fetch replies");
+                ctx.say("親メッセージのTSが取得できませんでした。");
+                return ctx.ack();
+            }
+
+            ConversationsRepliesResponse replies = ctx.client().conversationsReplies(r -> r
+                    .channel(channelId)
+                    .ts(threadTs)
+            );
+            log.info("Fetched {} messages from thread", replies.getMessages().size());
+
+            List<String> messages = replies.getMessages().stream()
+                    .map(m -> m.getText())
+                    .toList();
+            log.info("Extracted {} text messages", messages.size());
+
+            List<double[]> embeddings = openAiClient.embed(messages);
+            log.info("Generated {} embeddings", embeddings.size());
+
+            ThreadClusterer clusterer = new ThreadClusterer();
+            List<String> representatives = clusterer.clusterAndExtractRepresentatives(embeddings, messages);
+            log.info("Extracted {} representative messages", representatives.size());
+
+            String summary = openAiClient.summarize(representatives);
+            log.info("Summary result: {}", summary);
+
+            ctx.say(r -> r.channel(channelId).threadTs(threadTs).text(summary));
+            return ctx.ack();
+        });
+
         SocketModeApp socketModeApp = new SocketModeApp(appToken, app);
         socketModeApp.start();
+        log.info("SocketModeApp started successfully");
     }
 }
-
-/* メッセージの単純な送受信
-package com.example.slackbot.service;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Value;   // ← これが必要！
-
-import java.nio.charset.StandardCharsets;
-
-@Service
-public class SlackService {
-
-    private static final Logger log = LoggerFactory.getLogger(SlackService.class);
-    private final ObjectMapper mapper = new ObjectMapper();
-
-    @Value("${slack.bot.token}")
-    private String botToken;
-
-    public void postMessage(String channel, String text) {
-        if (botToken == null) {
-            log.error("SLACK_BOT_TOKEN is not set in environment variables.");
-            return;
-        }
-
-        String url = "https://slack.com/api/chat.postMessage";
-
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
-            HttpPost post = new HttpPost(url);
-            post.addHeader("Authorization", "Bearer " + botToken);
-            post.addHeader("Content-Type", "application/json; charset=utf-8");
-
-            String payload = mapper.createObjectNode()
-                    .put("channel", channel)
-                    .put("text", text)
-                    .toString();
-
-            post.setEntity(new StringEntity(payload, StandardCharsets.UTF_8));
-
-            var response = client.execute(post);
-            int statusCode = response.getCode();
-            log.info("Slack API response status: {}", statusCode);
-
-            if (statusCode != 200) {
-                log.error("Failed to post message to Slack. Status: {}", statusCode);
-            }
-        } catch (Exception e) {
-            log.error("Error posting message to Slack", e);
-        }
-    }
-
-    public void handleEvent(String eventType, com.fasterxml.jackson.databind.JsonNode event) {
-        switch (eventType) {
-            case "message":
-                // Bot自身の発言は無限ループ防止のためスキップ
-                if (event.has("bot_id")) return;
-
-                String text = event.path("text").asText();
-                String channel = event.path("channel").asText();
-                String user = event.path("user").asText();
-
-                // メンションが含まれている場合はスキップ（app_mentionで処理する）
-                if (text.contains("<@" )) {
-                    log.info("Skipping message event because it contains a mention: {}", text);
-                    return;
-                }
-
-                log.info("Message received: user={}, channel={}, text={}", user, channel, text);
-
-                // 受信内容を組み込んだ返信
-                postMessage(channel, "こんにちは！「" + text + "」と受信しました！");
-                break;
-
-            case "app_mention":
-                String mentionText = event.path("text").asText();
-                String mentionChannel = event.path("channel").asText();
-
-                log.info("App mention: channel={}, text={}", mentionChannel, mentionText);
-
-                // メンション内容を組み込んだ返信
-                postMessage(mentionChannel, "こんにちは！「" + mentionText + "」と受信しました！");
-                break;
-
-            default:
-                log.info("Unhandled eventType={}", eventType);
-        }
-    }
-}
-*/

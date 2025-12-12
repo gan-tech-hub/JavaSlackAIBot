@@ -27,6 +27,12 @@ public class FaqRepository {
         jdbcTemplate.update(sql, docId, section, content, embeddingStr);
     }
 
+    public boolean exists(String docId, String section, String content) {
+        String sql = "SELECT COUNT(*) FROM faq_chunks WHERE doc_id = ? AND section = ? AND content = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, docId, section, content);
+        return count > 0;
+    }
+
     public List<Chunk> search(double[] embedding, int limit) {
         // embedding を文字列化して Postgres vector 型に渡す
         StringBuilder sb = new StringBuilder();
