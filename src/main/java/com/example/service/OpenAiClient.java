@@ -71,7 +71,7 @@ public class OpenAiClient {
             String prompt = "以下のFAQを参考に質問に答えてください:\n" + context + "\n質問: " + question;
 
             ObjectNode root = mapper.createObjectNode();
-            root.put("model", "gpt-4.1-mini");
+            root.put("model", "ft:gpt-3.5-turbo-0125:testplatform::CoBT8aLN");
 
             ArrayNode messages = mapper.createArrayNode();
 
@@ -120,29 +120,36 @@ public class OpenAiClient {
                 .map(msg -> "- " + msg)
                 .collect(Collectors.joining("\n"));
 
-        String prompt = "以下はSlackスレッドの代表的なメッセージ群です。\n"
-                + "これらを基に、議論の要点を簡潔に要約してください。\n\n"
-                + joined;
+        String userPrompt = "Summarize: Slack thread about summary";
 
         // OpenAIのChatCompletion APIを呼び出す（既存のメソッドを利用）
-        return callChatCompletion(prompt);
+        return callChatCompletion(userPrompt, joined);
     }
 
-    private String callChatCompletion(String prompt) {
+    private String callChatCompletion(String userPrompt, String context) {
         try {
             ObjectNode root = mapper.createObjectNode();
-            root.put("model", "gpt-4o-mini"); // 実際に利用するモデル名
+            root.put("model", "ft:gpt-3.5-turbo-0125:testplatform::CoBT8aLN"); // 実際に利用するモデル名
 
             ArrayNode messages = mapper.createArrayNode();
 
             ObjectNode systemMsg = mapper.createObjectNode();
             systemMsg.put("role", "system");
-            systemMsg.put("content", "あなたはスレッド要約を行うアシスタントです。");
+            systemMsg.put("content",
+                    "You are a helpful assistant that summarizes Slack threads in bullet points.\n\n"
+                            + "Summarize the following messages focusing on:\n"
+                            + "- 重要な事実\n"
+                            + "- 期限や日時\n"
+                            + "- 質問と回答の関係\n"
+                            + "- 決定事項\n\n"
+                            + "Here are the representative messages:\n"
+                            + context
+            );
             messages.add(systemMsg);
 
             ObjectNode userMsg = mapper.createObjectNode();
             userMsg.put("role", "user");
-            userMsg.put("content", prompt);
+            userMsg.put("content", userPrompt);
             messages.add(userMsg);
 
             root.set("messages", messages);

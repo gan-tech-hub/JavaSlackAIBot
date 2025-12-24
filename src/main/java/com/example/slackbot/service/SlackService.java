@@ -11,6 +11,7 @@ import com.slack.api.model.Message;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Set;
+import java.util.concurrent.Executors;
 
 /*--- デバッグ ---*/
 import org.slf4j.Logger;
@@ -57,39 +58,53 @@ public class SlackService {
 
         // メッセージショートカット: summarize_thread
         app.messageShortcut("summarize_thread", (req, ctx) -> {
-            Message msg = req.getPayload().getMessage();
-            String channelId = req.getPayload().getChannel().getId();
-            String threadTs = msg.getTs();
-            log.info("Shortcut 'summarize_thread' triggered: channelId={} threadTs={}", channelId, threadTs);
+            ctx.ack(); // 即ACK
 
-            if (threadTs == null) {
-                log.warn("threadTs is null, cannot fetch replies");
-                ctx.say("親メッセージのTSが取得できませんでした。");
-                return ctx.ack();
-            }
+            Executors.newSingleThreadExecutor().submit(() -> {
+                try {
+                    Message msg = req.getPayload().getMessage();
+                    String channelId = req.getPayload().getChannel().getId();
+                    String threadTs = msg.getTs();
+                    log.info("Shortcut 'summarize_thread' triggered: channelId={} threadTs={}", channelId, threadTs);
 
-            ConversationsRepliesResponse replies = ctx.client().conversationsReplies(r -> r
-                    .channel(channelId)
-                    .ts(threadTs)
-            );
-            log.info("Fetched {} messages from thread", replies.getMessages().size());
+                    if (threadTs == null) {
+                        log.warn("threadTs is null, cannot fetch replies");
+                        ctx.say("親メッセージのTSが取得できませんでした。");
+                        return;
+                    }
 
-            List<String> messages = replies.getMessages().stream()
-                    .map(m -> m.getText())
-                    .toList();
-            log.info("Extracted {} text messages", messages.size());
+                    ConversationsRepliesResponse replies = ctx.client().conversationsReplies(r -> r
+                            .channel(channelId)
+                            .ts(threadTs)
+                    );
+                    log.info("Fetched {} messages from thread", replies.getMessages().size());
 
-            List<double[]> embeddings = openAiClient.embed(messages);
-            log.info("Generated {} embeddings", embeddings.size());
+                    List<String> messages = replies.getMessages().stream()
+                            .map(m -> m.getText())
+                            .toList();
+                    log.info("Extracted {} text messages", messages.size());
 
-            ThreadClusterer clusterer = new ThreadClusterer();
-            List<String> representatives = clusterer.clusterAndExtractRepresentatives(embeddings, messages);
-            log.info("Extracted {} representative messages", representatives.size());
+                    List<double[]> embeddings = openAiClient.embed(messages);
+                    log.info("Generated {} embeddings", embeddings.size());
 
-            String summary = openAiClient.summarize(representatives);
-            log.info("Summary result: {}", summary);
+                    ThreadClusterer clusterer = new ThreadClusterer();
+                    List<String> representatives = clusterer.clusterAndExtractRepresentatives(embeddings, messages);
+                    log.info("Extracted {} representative messages", representatives.size());
 
-            ctx.say(r -> r.channel(channelId).threadTs(threadTs).text(summary));
+                    String summary = openAiClient.summarize(representatives);
+                    log.info("Summary result: {}", summary);
+
+                    // ★ ctx.say() も try の中に入れる必要がある
+                    ctx.say(r -> r.channel(channelId).threadTs(threadTs).text(summary));
+
+                } catch (Exception e) {
+                    log.error("Error during summarize_thread processing", e);
+                    try {
+                        ctx.say("要約処理中にエラーが発生しました。");
+                    } catch (Exception ignore) {}
+                }
+            });
+
             return ctx.ack();
         });
 

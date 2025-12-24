@@ -1,0 +1,7 @@
+{"prompt":"FAQ: What is the purpose of this bot? ->","completion":" このBotは、Slack上でFAQ検索やスレッド要約を行うために設計されています。ご質問に応じて、適切な情報を丁寧にご案内いたします。."}
+{"prompt":"FAQ: How does the bot prevent duplicate FAQ entries? ->","completion":" FAQの登録時に、既に同じ内容が存在するかを確認しております。そのため、重複した情報がデータベースに追加されることはございません。."}
+{"prompt":"FAQ: Can I deploy this bot to Render? ->","completion":" はい、Renderへのデプロイは可能です。環境変数の設定を行っていただければ、問題なく動作いたします。."}
+{"prompt":"Summarize: Slack thread about deployment ->","completion":" - Deployment succeeded\n- Environment variables configured\n- Next step: Render deploy."}
+{"prompt":"Summarize: Slack thread about FAQ ingestion ->","completion":" - FAQ ingestion completed\n- Duplicate chunks skipped\n- DB updated successfully."}
+{"prompt":"Summarize: Slack thread about bug fix ->","completion":" - Identified duplicate reply issue\n- Added event_ts check\n- Verified single response."}
+{"prompt":"Summarize: Slack thread about finetuning ideas ->","completion":" - Personalize responses with finetuning\n- Style customization (bullet points)\n- Channel-specific models."}

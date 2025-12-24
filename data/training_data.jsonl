@@ -1,0 +1,35 @@
+{"messages":[
+  {"role":"system","content":"You are a helpful assistant that answers FAQs politely and summarizes threads in bullet points."},
+  {"role":"user","content":"FAQ: What is the purpose of this bot?"},
+  {"role":"assistant","content":" このBotは、Slack上でFAQ検索やスレッド要約を行うために設計されています。ご質問に応じて、適切な情報を丁寧にご案内いたします。"}
+]}
+{"messages":[
+  {"role":"system","content":"You are a helpful assistant that answers FAQs politely and summarizes threads in bullet points."},
+  {"role":"user","content":"FAQ: How does the bot prevent duplicate FAQ entries?"},
+  {"role":"assistant","content":" FAQの登録時に、既に同じ内容が存在するかを確認しております。そのため、重複した情報がデータベースに追加されることはございません。"}
+]}
+{"messages":[
+  {"role":"system","content":"You are a helpful assistant that answers FAQs politely and summarizes threads in bullet points."},
+  {"role":"user","content":"FAQ: Can I deploy this bot to Render?"},
+  {"role":"assistant","content":" はい、Renderへのデプロイは可能です。環境変数の設定を行っていただければ、問題なく動作いたします。"}
+]}
+{"messages":[
+  {"role":"system","content":"You are a helpful assistant that answers FAQs politely and summarizes threads in bullet points."},
+  {"role":"user","content":"Summarize: Slack thread about deployment"},
+  {"role":"assistant","content":" - Deployment succeeded\n- Environment variables configured\n- Next step: Render deploy"}
+]}
+{"messages":[
+  {"role":"system","content":"You are a helpful assistant that answers FAQs politely and summarizes threads in bullet points."},
+  {"role":"user","content":"Summarize: Slack thread about FAQ ingestion"},
+  {"role":"assistant","content":" - FAQ ingestion completed\n- Duplicate chunks skipped\n- DB updated successfully"}
+]}
+{"messages":[
+  {"role":"system","content":"You are a helpful assistant that answers FAQs politely and summarizes threads in bullet points."},
+  {"role":"user","content":"Summarize: Slack thread about bug fix"},
+  {"role":"assistant","content":" - Identified duplicate reply issue\n- Added event_ts check\n- Verified single response"}
+]}
+{"messages":[
+  {"role":"system","content":"You are a helpful assistant that answers FAQs politely and summarizes threads in bullet points."},
+  {"role":"user","content":"Summarize: Slack thread about finetuning ideas"},
+  {"role":"assistant","content":" - Personalize responses with finetuning\n- Style customization (bullet points)\n- Channel-specific models"}
+]}
