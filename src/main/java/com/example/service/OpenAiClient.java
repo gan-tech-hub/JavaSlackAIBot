@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,8 +13,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OpenAiClient {
+    private static final Logger log = LoggerFactory.getLogger(OpenAiClient.class);
     private final String apiKey;
     private final HttpClient httpClient;
     private final ObjectMapper mapper;
@@ -22,6 +26,52 @@ public class OpenAiClient {
         this.apiKey = apiKey;
         this.httpClient = HttpClient.newHttpClient();
         this.mapper = new ObjectMapper();
+    }
+
+    public ReportResult generateReport(String reportType, String period, String csvData) {
+        try {
+            String systemPrompt = """
+                    You are an AI assistant that generates business reports based on structured data.
+                    
+                    Your tasks:
+                    1. Identify key metrics from the provided data.
+                    2. Suggest which metrics should be visualized in a graph.
+                    3. Generate a clear and concise report in Japanese.
+                    4. Provide insights and recommendations.
+                    
+                    Output must be in JSON format:
+                    {
+                      "summary": "日本語の要約",
+                      "graph_items": ["..."],
+                      "insights": ["..."],
+                      "recommendations": ["..."]
+                    }
+                    """;
+
+            String userPrompt = """
+                    Report type: %s
+                    Target period: %s
+                    
+                    Here is the dataset:
+                    %s
+                    """.formatted(reportType, period, csvData);
+
+            log.info("[Report] callOpenAi Call Start");
+            // ★ ChatCompletion 呼び出し
+            String response = callOpenAi(systemPrompt, userPrompt);
+
+            // コードブロック除去
+            String cleaned = response
+                    .replace("```json", "")
+                    .replace("```", "")
+                    .trim();
+
+            // ★ JSON をパースして ReportResult に変換
+            return ReportResult.fromJson(cleaned);
+        } catch (Exception e) {
+            log.info("[Report] ReportResult Exception Catch");
+            throw new RuntimeException("ReportResult Call Failed", e);
+        }
     }
 
     public List<double[]> embed(List<String> texts) {
@@ -124,6 +174,60 @@ public class OpenAiClient {
 
         // OpenAIのChatCompletion APIを呼び出す（既存のメソッドを利用）
         return callChatCompletion(userPrompt, joined);
+    }
+
+    private String callOpenAi(String systemPrompt, String userPrompt) {
+        log.info("[Report] callOpenAi START");
+        try {
+            ObjectNode root = mapper.createObjectNode();
+            root.put("model", "gpt-4o");
+
+            ArrayNode messages = mapper.createArrayNode();
+
+            ObjectNode systemMsg = mapper.createObjectNode();
+            systemMsg.put("role", "system");
+            systemMsg.put("content", systemPrompt);
+            messages.add(systemMsg);
+
+            ObjectNode userMsg = mapper.createObjectNode();
+            userMsg.put("role", "user");
+            userMsg.put("content", userPrompt);
+            messages.add(userMsg);
+
+            root.set("messages", messages);
+
+            String body = mapper.writeValueAsString(root);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.openai.com/v1/chat/completions"))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(
+                    request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
+            );
+
+            log.info("[OpenAI RAW] {}", response.body());
+
+            JsonNode json = mapper.readTree(response.body());
+
+            // content を取得
+            String content = json.get("choices").get(0).get("message").get("content").asText();
+
+            // コードブロック除去
+            String cleaned = content
+                    .replace("```json", "")
+                    .replace("```", "")
+                    .trim();
+
+            return cleaned;
+
+        } catch (Exception e) {
+            log.info("[Report] Exception Catch: OpenAI API Call Failed");
+            throw new RuntimeException("OpenAI API呼び出し失敗", e);
+        }
     }
 
     private String callChatCompletion(String userPrompt, String context) {
