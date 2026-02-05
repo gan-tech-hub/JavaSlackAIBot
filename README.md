@@ -138,9 +138,23 @@ MIT
 ---
 
 ## 📷 スクリーンショット例 (準備中)  
-（Slack での実際の動作例を掲載予定）
-
 - FAQ検索の回答例  
-- スレッド要約の返信例  
+<img width="746" height="142" alt="社内FAQ機能" src="https://github.com/user-attachments/assets/a94b3864-baa7-478e-bddc-4b5c81a698d3" />  
+
+
+  
+- スレッド要約の返信例
+<img width="988" height="865" alt="スレッド要約機能" src="https://github.com/user-attachments/assets/b9f3b895-2cb8-4c45-b414-5ca6d405f672" />
+
+
+  
 - パーソナライズ応答例  
-- 売上レポート（PNG グラフ）投稿例  
+※「FAQは丁寧な語感、要約は箇条書き」で回答するように学習
+
+<img width="651" height="74" alt="パーソナライズ応答_FAQ" src="https://github.com/user-attachments/assets/9a72a151-ff9e-437c-b9bc-438394286239" />
+<img width="791" height="169" alt="パーソナライズ応答_要約" src="https://github.com/user-attachments/assets/f74cec24-102d-42ef-b31d-142f3c70be25" />
+
+  
+- 売上レポート（PNG グラフ）投稿例
+<img width="752" height="451" alt="レポート生成機能" src="https://github.com/user-attachments/assets/93fb0484-7dd3-4e7e-acce-99e6f8eeda85" />
+
